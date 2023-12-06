@@ -23,9 +23,6 @@ static uint16_t DELAY = 5;
 #define GAS_SENSOR_PIN_1 20
 #define GAS_SENSOR_PIN_2 21
 
-// 서버 정보
-#define SERVER_IP "127.0.0.1" // 서버의 IP 주소
-#define SERVER_PORT 8080      // 서버의 포트 번호
 
 static int spi_fd;
 static pthread_t thread_id;
@@ -93,40 +90,6 @@ int readadc(int fd, uint8_t channel)
   return (rx[2] > 50) ? 1 : 0;
 }
 
-void *send_sensor_values(void *arg)
-{
-  int server_fd, new_socket;
-  struct sockaddr_in server, client;
-  int opt = 1;
-  int addrlen = sizeof(client);
-
-  server.sin_family = AF_INET;
-  server.sin_addr.s_addr = inet_addr(SERVER_IP);
-  server.sin_port = htons(SERVER_PORT);
-
-
-  while (1)
-  {
-    // 클라이언트 연결 수락
-    if ((new_socket = accept(server_fd, (struct sockaddr *)&client, (socklen_t *)&addrlen)) < 0)
-    {
-      perror("accept() error");
-      exit(EXIT_FAILURE);
-    }
-
-    // 가스 센서 값 읽어와서 전송
-    int gasValue1 = readadc(spi_fd, GAS_SENSOR_PIN_1);
-    int gasValue2 = readadc(spi_fd, GAS_SENSOR_PIN_2);
-
-    // 클라이언트에게 메시지 전송
-    char message[50];
-    sprintf(message, "%d %d", gasValue1, gasValue2);
-    send(new_socket, message, strlen(message), 0);
-
-    // 연결 종료
-    close(new_socket);
-  }
-}
 
 int sock;
 
@@ -169,12 +132,6 @@ if (prepare(spi_fd) == -1)
   return -1;
 }
 
-// 스레드 시작
-if (pthread_create(&thread_id, NULL, send_sensor_values, NULL) != 0)
-{
-  perror("thread creation failed");
-  return -1;
-}
 
 // 메인 스레드에서 가스 센서 값을 읽고 출력
 while (1)
@@ -196,9 +153,7 @@ while (1)
 
     usleep(10000);
   }
-
-  // 스레드 종료 대기
-  pthread_join(thread_id, NULL);
+}
 
   // SPI 장치 닫기
   close(spi_fd);
