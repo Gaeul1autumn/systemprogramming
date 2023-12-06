@@ -9,7 +9,7 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 
-int server_sock; // git test test test
+int server_sock; 
 pthread_t th[3];
 int gas_detection = 0;
 int motion_detection = 0;
