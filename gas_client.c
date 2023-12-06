@@ -132,6 +132,7 @@ int sock;
 
 int main(int argc, char *argv[])
 {
+  char buff[3] = "10";
   struct sockaddr_in server_addr;
   if (argc != 3)
   { // client 프로그램 실행 시 인자에 IP랑 port num을 제대로 주지 않았을 때
@@ -182,7 +183,7 @@ while (1)
   int gasValue2 = readadc(spi_fd, GAS_SENSOR_PIN_2);
 
   //fixme
-  char buff[3] = "10";
+ 
   if (gasValue1 == 1 && gasValue2 == 1)
   {
     if (write(sock, &buff[0], 1) == -1)
