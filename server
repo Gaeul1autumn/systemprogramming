@@ -33,6 +33,7 @@ void* read_gasvalue(void * socket){
         }
         else if(read_stat == 0) break;
         else{
+            printf("%c\n",gas_check);
             if(!strncmp(&gas_check,"1",1)){ //가스 발생
                 gas_detection = 1;
                 sleep(1);
@@ -73,7 +74,7 @@ void* motion(void * socket){
         }
         else if(read_stat == 0) break;
         else{
-            if(!stnrcmp(&motion_check,"1",1)){ //가스 발생
+            if(!strncmp(&motion_check,"1",1)){ //가스 발생
                 motion_detection = 1;
                 sleep(1);
             }else {
@@ -88,12 +89,19 @@ void* motion(void * socket){
     exit(0); 
 }
 
-void* speaker(void){
+void* speaker(void* q){
     while(1){
         if(gas_detection && motion_detection){
             system("espeak ""흡연이 감지되었습니다: 이곳은 금연구역 입니다"" -s 160 -p 95 -v ko+f3");
         }
     }
+}
+
+void error_handling(char *message, int sock) {//socket error날 시 handle
+    close(sock); // socket 닫기
+    perror(message); // error message 출력
+    fputc('\n', stderr);
+    exit(1); // 종료
 }
 
 int main( int argc, char*argv[]){
@@ -135,17 +143,18 @@ int main( int argc, char*argv[]){
 
         if(!(strncmp("192.168.112",inet_ntoa(cs[i].socket_addr.sin_addr),11))){ // 모션 FIXME: ip 수정 필수 
             if(pthread_create(&th[i], NULL, motion, (void *)&cs[i] )){ 
-            perror("thread creating error");
-            close(cs[i].sock); 
-            continue;
+                perror("thread creating error");
+                close(cs[i].sock); 
+                continue;
             }
 
-        }else if(!(strncmp("192.168.113",inet_ntoa(cs[i].socket_addr.sin_addr),11))){ // 가스
+        }else if(!(strncmp("192.168.111.7",inet_ntoa(cs[i].socket_addr.sin_addr),13))){ // 가스
             if(pthread_create(&th[i], NULL,  read_gasvalue, (void *)&cs[i] )){
                 perror("thread creating error");
                 close(cs[i].sock); 
                 continue; 
             }
+            printf("join\n");
 
 
         }else if(!(strncmp("192.168.114",inet_ntoa(cs[i].socket_addr.sin_addr),11))){ // 카메라
@@ -161,7 +170,7 @@ int main( int argc, char*argv[]){
         pthread_detach(th[i++]); // 생성한 thread룰 main 에서 분리해서 원격 shell 종료시 자동 자원 반환하도록 
 
         pthread_t t;
-        if(pthread_create(&t, NULL, speaker, NULL )){ //
+        if(pthread_create(&t, NULL, speaker, NULL)){ //
                 perror("thread creating error");
                 exit(1);
         }
@@ -175,3 +184,66 @@ int main( int argc, char*argv[]){
 
 
 }
+
+
+/* 
+int sock;
+int argc, char*argv[]
+ struct sockaddr_in server_addr; 
+if (argc != 3) { // client 프로그램 실행 시 인자에 IP랑 port num을 제대로 주지 않았을 때 
+        printf("Please deliver IP & Port num as arguments Correctly!\n");
+        exit(1);
+    }
+
+sock = socket(PF_INET, SOCK_STREAM, 0); // socket 생성 TCP 방식 IPv4
+if (sock== -1) error_handling("socket() error", sock); // socket 생성시 error control
+    
+memset(&server_addr, 0, sizeof(server_addr));
+server_addr.sin_family = AF_INET; //IPv4
+server_addr.sin_addr.s_addr = inet_addr(argv[1]); // IP 변환해서 저장
+server_addr.sin_port = htons(atoi(argv[2])); //port num 변환해서 저장
+
+if (connect(sock, (struct sockaddr *)&server_addr, sizeof(server_addr)) == -1) error_handling("connect() error", sock);
+
+}
+
+ */
+
+/* 
+char buff[3]="10"
+if(가스 && 일산화 모두 감지){
+    if(write(sock, &buff[0], 1) == -1) perror("Client input; sending data to server error");
+}else{
+    if(write(sock, &buff[1], 1) == -1) perror("Client input; sending data to server error");
+ */
+
+
+/* 
+
+char buff[3]="10"
+if(모션 감지 됨){
+    if(write(sock, &buff[0], 1) == -1) perror("Client input; sending data to server error");
+}else{
+    if(write(sock, &buff[1], 1) == -1) perror("Client input; sending data to server error");
+ */
+
+
+/* 
+ssize_t read_stat;
+char picture;
+    while(1){
+        read_stat = read(sock, &picture, 1);
+        if(read_stat == -1) {
+            perror("Client Output; reading data from socket error");
+            exit(1);
+        }
+        else if(read_stat == 0) break;
+        else{
+            if(!strncmp(&gas_check,"1",1)){ // 사진 찍음
+                사진 찍기 함수
+                sleep(1);
+                system("cd 사진 있는 경로로 이동");
+                system("python3 email.py");
+            }
+        }
+ */
