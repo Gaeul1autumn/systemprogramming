@@ -10,6 +10,7 @@
 #include <sys/ioctl.h>
 #include <arpa/inet.h>
 #include <netinet/in.h>
+#include <sys/socket.h>
 
 #define ARRAY_SIZE(a) (sizeof(a) / sizeof((a)[0]))
 
@@ -99,37 +100,10 @@ void *send_sensor_values(void *arg)
   int opt = 1;
   int addrlen = sizeof(client);
 
-  // 소켓 생성
-  if ((server_fd = socket(AF_INET, SOCK_STREAM, 0)) == 0)
-  {
-    perror("Socket creation failed");
-    exit(EXIT_FAILURE);
-  }
-
-  // 소켓 옵션 설정
-  if (setsockopt(server_fd, SOL_SOCKET, SO_REUSEADDR | SO_REUSEADDR, &opt, sizeof(opt)))
-  {
-    perror("Setsockopt failed");
-    exit(EXIT_FAILURE);
-  }
-
   server.sin_family = AF_INET;
   server.sin_addr.s_addr = inet_addr(SERVER_IP);
   server.sin_port = htons(SERVER_PORT);
 
-  // 소켓 바인딩
-  if (bind(server_fd, (struct sockaddr *)&server, sizeof(server)) < 0)
-  {
-    perror("Bind() error");
-    exit(EXIT_FAILURE);
-  }
-
-  // 소켓 수신 대기
-  if (listen(server_fd, 3) < 0)
-  {
-    perror("listen() error");
-    exit(EXIT_FAILURE);
-  }
 
   while (1)
   {
@@ -154,35 +128,70 @@ void *send_sensor_values(void *arg)
   }
 }
 
+int sock;
+
 int main(int argc, char *argv[])
 {
-  // SPI 장치 열기
-  spi_fd = open(DEVICE, O_RDWR);
-  if (spi_fd <= 0)
-  {
-    perror("Device open error");
-    return -1;
+  struct sockaddr_in server_addr;
+  if (argc != 3)
+  { // client 프로그램 실행 시 인자에 IP랑 port num을 제대로 주지 않았을 때
+    printf("Please deliver IP & Port num as arguments Correctly!\n");
+    exit(1);
   }
 
-  // SPI 설정 준비
-  if (prepare(spi_fd) == -1)
-  {
-    perror("Device prepare error");
-    return -1;
-  }
+  sock = socket(PF_INET, SOCK_STREAM, 0); // socket 생성 TCP 방식 IPv4
+  if (sock == -1)
+    error_handling("socket() error", sock); // socket 생성시 error control
 
-  // 스레드 시작
-  if (pthread_create(&thread_id, NULL, send_sensor_values, NULL) != 0)
-  {
-    perror("thread creation failed");
-    return -1;
-  }
+  memset(&server_addr, 0, sizeof(server_addr));
+  server_addr.sin_family = AF_INET;                 // IPv4
+  server_addr.sin_addr.s_addr = inet_addr(argv[1]); // IP 변환해서 저장
+  server_addr.sin_port = htons(atoi(argv[2]));      // port num 변환해서 저장
 
-  // 메인 스레드에서 가스 센서 값을 읽고 출력
-  while (1)
+  if (connect(sock, (struct sockaddr *)&server_addr, sizeof(server_addr)) == -1)
+    error_handling("connect() error", sock);
+
+
+
+// SPI 장치 열기
+spi_fd = open(DEVICE, O_RDWR);
+if (spi_fd <= 0)
+{
+  perror("Device open error");
+  return -1;
+}
+
+// SPI 설정 준비
+if (prepare(spi_fd) == -1)
+{
+  perror("Device prepare error");
+  return -1;
+}
+
+// 스레드 시작
+if (pthread_create(&thread_id, NULL, send_sensor_values, NULL) != 0)
+{
+  perror("thread creation failed");
+  return -1;
+}
+
+// 메인 스레드에서 가스 센서 값을 읽고 출력
+while (1)
+{
+  int gasValue1 = readadc(spi_fd, GAS_SENSOR_PIN_1);
+  int gasValue2 = readadc(spi_fd, GAS_SENSOR_PIN_2);
+
+  //fixme
+  char buff[3] = "10";
+  if (gasValue1 == 1 && gasValue2 == 1)
   {
-    int gasValue1 = readadc(spi_fd, GAS_SENSOR_PIN_1);
-    int gasValue2 = readadc(spi_fd, GAS_SENSOR_PIN_2);
+    if (write(sock, &buff[0], 1) == -1)
+      perror("Client input; sending data to server error");
+  }
+  else
+  {
+    if (write(sock, &buff[1], 1) == -1)
+      perror("Client input; sending data to server error");
 
     usleep(10000);
   }
