@@ -200,6 +200,7 @@ int main( int argc, char*argv[]){
     struct sockaddr_in server_addr; 
     int i = 0;
     signal(SIGINT, (void*)sig_handler);
+    pwm();
 
     if(argc !=2 ){ // server 프로그램 실행시 port num을 인자로 입력하지 않았을 때
         printf("Please deliver Port num as argument Correctly!\n");
