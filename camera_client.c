@@ -1,5 +1,8 @@
-/* int sock;
-int argc, char*argv[]
+/* 
+이 부분 main 함수에 추가해주세요. 서버에서 1를 받으면 가스가 발생했다는 뜻으로 카메라를 작동시키는 로직입니다.
+int sock; // 전역
+
+int main(int argc, char*argv[]){
  struct sockaddr_in server_addr; 
 if (argc != 3) { // client 프로그램 실행 시 인자에 IP랑 port num을 제대로 주지 않았을 때 
         printf("Please deliver IP & Port num as arguments Correctly!\n");
@@ -14,7 +17,27 @@ server_addr.sin_family = AF_INET; //IPv4
 server_addr.sin_addr.s_addr = inet_addr(argv[1]); // IP 변환해서 저장
 server_addr.sin_port = htons(atoi(argv[2])); //port num 변환해서 저장
 
-if (connect(sock, (struct sockaddr *)&server_addr, sizeof(server_addr)) == -1) error_handling("connect() error", sock); */
+if (connect(sock, (struct sockaddr *)&server_addr, sizeof(server_addr)) == -1) error_handling("connect() error", sock); 
+ssize_t read_stat;
+char picture;
+    while(1){
+        read_stat = read(sock, &picture, 1);
+        if(read_stat == -1) {
+            perror("Client Output; reading data from socket error");
+            exit(1);
+        }
+        else if(read_stat == 0) break;
+        else{
+            if(!strncmp(&gas_check,"1",1)){ // 사진 찍음
+                사진 찍기 
+                sleep(1);
+                system("cd 사진 있는 경로로 이동");
+                system("python3 email.py");
+            }
+        }
+
+ }
+*/
 
 
 
