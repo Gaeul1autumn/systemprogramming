@@ -1,3 +1,26 @@
+/* int sock;
+int argc, char*argv[]
+ struct sockaddr_in server_addr; 
+if (argc != 3) { // client 프로그램 실행 시 인자에 IP랑 port num을 제대로 주지 않았을 때 
+        printf("Please deliver IP & Port num as arguments Correctly!\n");
+        exit(1);
+    }
+
+sock = socket(PF_INET, SOCK_STREAM, 0); // socket 생성 TCP 방식 IPv4
+if (sock== -1) error_handling("socket() error", sock); // socket 생성시 error control
+    
+memset(&server_addr, 0, sizeof(server_addr));
+server_addr.sin_family = AF_INET; //IPv4
+server_addr.sin_addr.s_addr = inet_addr(argv[1]); // IP 변환해서 저장
+server_addr.sin_port = htons(atoi(argv[2])); //port num 변환해서 저장
+
+if (connect(sock, (struct sockaddr *)&server_addr, sizeof(server_addr)) == -1) error_handling("connect() error", sock); */
+
+
+
+
+
+
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
