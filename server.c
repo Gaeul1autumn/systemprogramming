@@ -4,16 +4,16 @@
 #include <stdio.h>
 #include <pthread.h>
 #include <unistd.h>
-#include <signal.h>
 #include <stdlib.h>
 #include <sys/types.h>
-#include <sys/wait.h>
+#include <fcntl.h>
+#include <signal.h>
 
 int server_sock; 
 pthread_t th[3];
 int gas_detection = 0;
 int motion_detection = 0;
-
+FILE* fp;
 
 struct connecting_socket{ // connection 요청하는 client와 연결하는 socket 생성시 사용하는 구조체
     struct sockaddr_in socket_addr ;
@@ -45,7 +45,7 @@ void* read_gasvalue(void * socket){
     }
 
     close(sk->sock);
-    printf("connection with server is closed!\n");
+    printf("connection with client is closed!\n");
     exit(0); 
 }
 
@@ -55,7 +55,8 @@ void* camera(void * socket){
     while(1){
         if(gas_detection && motion_detection){
             if(write(sk->sock,&buff[0],1)== -1) perror(" write error");
-
+            system("espeak ""흡연이 감지되었습니다: 이곳은 금연구역 입니다"" -s 160 -p 95 -v ko+f3");
+            siren();
         }else{
             if(write(sk->sock,&buff[1],1)== -1) perror(" write error");
         }
@@ -85,17 +86,10 @@ void* motion(void * socket){
     }
 
     close(sk->sock);
-    printf("connection with server is closed!\n");
+    printf("connection with client is closed!\n");
     exit(0); 
 }
 
-void* speaker(void* q){
-    while(1){
-        if(gas_detection && motion_detection){
-            system("espeak ""흡연이 감지되었습니다: 이곳은 금연구역 입니다"" -s 160 -p 95 -v ko+f3");
-        }
-    }
-}
 
 void error_handling(char *message, int sock) {//socket error날 시 handle
     close(sock); // socket 닫기
@@ -104,9 +98,108 @@ void error_handling(char *message, int sock) {//socket error날 시 handle
     exit(1); // 종료
 }
 
+void sig_handler(int signo){ // ctrl + C 로 server  강제 종료할 때 handling
+    printf("\n");
+    close(server_sock); // 서버 socket 닫기
+    fclose(fp);
+    int fd = open("/sys/class/pwm/pwmchip0/unexport",O_WRONLY);
+    write(fd,"0",1);
+    // write(fd,"1",1);
+    close(fd);
+    exit(0); // 종료 
+}
+
+/* void set_gpio(){
+    int fd = open("/sys/class/gpio/export", O_WRONLY);
+      if (fd == -1) {
+        perror("Error exporting GPIO");
+        return -1;
+    }
+
+    write(fd,"22",3);
+    write(fd,"27",3);
+    close(fd);
+
+    sleep(1);
+
+    fd = open("/sys/class/gpio/gpio22/direction", O_WRONLY);
+    if (fd == -1) {
+        perror("Error set direction gpio");
+        return -1;
+    }
+    write(fd,"out",3);
+    close(fd);
+
+    fd = open("/sys/class/gpio/gpio27/direction", O_WRONLY);
+    if (fd == -1) {
+        perror("Error set direction gpio");
+        return -1;
+    }
+
+    write(fd,"out",3);
+    close(fd);
+
+} */
+
+void pwm(){
+    int fd = open("/sys/class/pwm/pwmchip0/export",O_WRONLY);
+    write(fd,"0",1);
+    close(fd);
+    sleep(1);
+
+    fd = open("/sys/class/pwm/pwmchip0/pwm0/period", O_WRONLY);
+    write(fd,"1000000",6);
+    close(fd);
+
+    fd=open("/sys/class/pwm/pwmchip0/pwm0/duty_cycle", O_WRONLY);
+    write(fd,"0",1);
+    close(fd);
+
+    fd= open("/sys/class/pwm/pwmchip0/pwm0/enable", O_WRONLY);
+    write(fd,"1",1);
+    close(fd);
+
+    fp=fopen("/sys/class/pwm/pwmchip0/pwm0/duty_cycle", "w");
+
+    /* fd = open("/sys/class/pwm/pwmchip0/export",O_WRONLY);
+    write(fd,"1",1);
+    close(fd);
+    sleep(1);
+
+    fd = open("/sys/class/pwm/pwmchip0/pwm1/period", O_WRONLY);
+    write(fd,"1000000",6);
+    close(fd);
+
+    fd=open("/sys/class/pwm/pwmchip0/pwm1/duty_cycle", O_WRONLY);
+    write(fd,"0",1);
+    close(fd);
+
+    fd= open("/sys/class/pwm/pwmchip0/pwm1/enable", O_WRONLY);
+    write(fd,"1",1);
+    close(fd);
+
+    fp=fopen("/sys/class/pwm/pwmchip0/pwm1/duty_cycle", "w");
+ */
+}
+
+void siren(){
+    time_t start = time(NULL);
+    while(time(NULL)-start <= 5){
+         for (int i = 0; i < 1000; i++){
+            fprintf(fp,"%d",i*1000);
+        }
+        for(int i = 1000; i >0; i--){
+            fprintf(fp, "%d",i*1000);
+        }
+    }
+     fprintf(fp, "%d",0);
+  
+}
+
 int main( int argc, char*argv[]){
     struct sockaddr_in server_addr; 
     int i = 0;
+    signal(SIGINT, (void*)sig_handler);
 
     if(argc !=2 ){ // server 프로그램 실행시 port num을 인자로 입력하지 않았을 때
         printf("Please deliver Port num as argument Correctly!\n");
@@ -169,18 +262,12 @@ int main( int argc, char*argv[]){
 
         pthread_detach(th[i++]); // 생성한 thread룰 main 에서 분리해서 원격 shell 종료시 자동 자원 반환하도록 
 
-        pthread_t t;
-        if(pthread_create(&t, NULL, speaker, NULL)){ //
-                perror("thread creating error");
-                exit(1);
-        }
-
-        pthread_join(t, NULL);
-
-        return 0;
         
     }
 
+    while(1){}
+
+    return 0;
 
 
 }
