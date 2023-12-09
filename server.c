@@ -237,7 +237,7 @@ int main( int argc, char*argv[]){
         // client와의 connection이 성립되어 join 하게되었음을 출력 
         printf("Client join fd[%d], ip:[%s], port:[%d]\n",cs[i].sock,inet_ntoa(cs[i].socket_addr.sin_addr), ntohs(cs[i].socket_addr.sin_port));
 
-        if(!(strncmp("192.168.112",inet_ntoa(cs[i].socket_addr.sin_addr),11))){ // 모션 FIXME: ip 수정 필수 
+        if(!(strncmp("192.168.112",inet_ntoa(cs[i].socket_addr.sin_addr),13))){ // 모션 FIXME: ip 수정 필수 
             if(pthread_create(&th[i], NULL, motion, (void *)&cs[i] )){ 
                 perror("thread creating error");
                 close(cs[i].sock); 
@@ -250,10 +250,9 @@ int main( int argc, char*argv[]){
                 close(cs[i].sock); 
                 continue; 
             }
-            printf("join\n");
 
 
-        }else if(!(strncmp("192.168.114",inet_ntoa(cs[i].socket_addr.sin_addr),11))){ // 카메라
+        }else if(!(strncmp("192.168.114",inet_ntoa(cs[i].socket_addr.sin_addr),13))){ // 카메라
             if(pthread_create(&th[i], NULL,  camera, (void *)&cs[i] )){ // client와 connection 수락한 후 바로 shell을 열기 위한 thread 생성 
                 perror("thread creating error");
                 close(cs[i].sock); // 에러 발생시  socket닫고 메모리도 해제
