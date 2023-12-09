@@ -187,12 +187,14 @@ void siren(){
     while(time(NULL)-start <= 5){
          for (int i = 0; i < 1000; i++){
             fprintf(fp,"%d",i*1000);
+            usleep(1000);
         }
         for(int i = 1000; i >0; i--){
             fprintf(fp, "%d",i*1000);
+            usleep(1000);
         }
     }
-     fprintf(fp, "%d",0);
+    fprintf(fp, "%d",0);
   
 }
 
