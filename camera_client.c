@@ -32,7 +32,7 @@ char picture;
                 사진 찍기 
                 sleep(1);
                 system("cd 사진 있는 경로로 이동");
-                system("python3 email.py");
+                system("python3 send_email.py");
             }
         }
 
