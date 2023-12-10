@@ -58,7 +58,7 @@ int main(int argc, char* argv[]) {
         } else if (read_stat == 0) {
             break;
         } else {
-            if (!strncmp(&gas_check, "1",1)) { // 가스가 감지되면
+            if (!strncmp(&gas_check, "1",1)) { // 가스가 감지되면 사진을 찍는다.
                 system("raspistill -o image.jpg");
                 system("raspistill -vf -o image.jpg");
                 sleep(1);
