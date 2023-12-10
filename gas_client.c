@@ -19,13 +19,15 @@ static uint8_t MODE = 0;
 static uint8_t BITS = 8;
 static uint32_t CLOCK = 1000000;
 static uint16_t DELAY = 5;
+int sock;
 
-#define GAS_SENSOR_PIN_1 20
-#define GAS_SENSOR_PIN_2 21
-
-
-static int spi_fd;
-static pthread_t thread_id;
+void error_handling(char *message, int sock)
+{                    // socket error날 시 handle
+    close(sock);     // socket 닫기
+    perror(message); // error message 출력
+    fputc('\n', stderr);
+    exit(1); // 종료
+}
 
 static int prepare(int fd)
 {
@@ -82,81 +84,69 @@ int readadc(int fd, uint8_t channel)
 
   if (ioctl(fd, SPI_IOC_MESSAGE(1), &tr) == 1)
   {
-    perror("IO error");
+    perror("IO Error");
     abort();
   }
 
-  // 가스가 대기 상태보다 높은 값이 감지되면 1, 그렇지 않으면 0 반환
-  return (rx[2] > 50) ? 1 : 0;
+  return ((rx[1] << 8) & 0x300) | (rx[2] & 0xFF);
 }
-
-
-int sock;
 
 int main(int argc, char *argv[])
 {
-  char buff[3] = "10";
+  
+  char val[3] = "10";
   struct sockaddr_in server_addr;
+  printf("hello\n");
+
   if (argc != 3)
-  { // client 프로그램 실행 시 인자에 IP랑 port num을 제대로 주지 않았을 때
-    printf("Please deliver IP & Port num as arguments Correctly!\n");
+  {
+    printf("Please deliver IP & Port num as argemnts Correctly!");
     exit(1);
   }
 
-  sock = socket(PF_INET, SOCK_STREAM, 0); // socket 생성 TCP 방식 IPv4
+  sock = socket(PF_INET, SOCK_STREAM, 0);
   if (sock == -1)
-    error_handling("socket() error", sock); // socket 생성시 error control
+    error_handling("socket() error", sock);
 
   memset(&server_addr, 0, sizeof(server_addr));
-  server_addr.sin_family = AF_INET;                 // IPv4
-  server_addr.sin_addr.s_addr = inet_addr(argv[1]); // IP 변환해서 저장
-  server_addr.sin_port = htons(atoi(argv[2]));      // port num 변환해서 저장
+  server_addr.sin_family = AF_INET;
+  server_addr.sin_addr.s_addr = inet_addr(argv[1]);
+  server_addr.sin_port = htons(atoi(argv[2]));
 
   if (connect(sock, (struct sockaddr *)&server_addr, sizeof(server_addr)) == -1)
-    error_handling("connect() error", sock);
+    error_handling("connect() error", sock); // 서버연결
+    
+  printf("join\n");
 
-
-
-// SPI 장치 열기
-spi_fd = open(DEVICE, O_RDWR);
-if (spi_fd <= 0)
-{
-  perror("Device open error");
-  return -1;
-}
-
-// SPI 설정 준비
-if (prepare(spi_fd) == -1)
-{
-  perror("Device prepare error");
-  return -1;
-}
-
-
-// 메인 스레드에서 가스 센서 값을 읽고 출력
-while (1)
-{
-  int gasValue1 = readadc(spi_fd, GAS_SENSOR_PIN_1);
-  int gasValue2 = readadc(spi_fd, GAS_SENSOR_PIN_2);
-
-  //fixme
- 
-  if (gasValue1 == 1 && gasValue2 == 1)
+  int fd = open(DEVICE, O_RDWR);
+  if (fd <= 0)
   {
-    if (write(sock, &buff[0], 1) == -1)
-      perror("Client input; sending data to server error");
+    perror("Device open error");
+    return -1;
   }
-  else
+
+  if (prepare(fd) == -1)
   {
-    if (write(sock, &buff[1], 1) == -1)
-      perror("Client input; sending data to server error");
-
-    usleep(10000);
+    perror("Device prepare error");
+    return -1;
   }
-}
 
-  // SPI 장치 닫기
-  close(spi_fd);
-
-  return 0;
+  while (1)
+  {
+    printf("value: %d , %d\n", readadc(fd, 0), readadc(fd, 1)); // 가스센서 채널:0 일산화탄소 채널:1
+    if (readadc(fd, 0) > 300 && readadc(fd, 1) > 300)
+    { // 아날로그 신호 읽기
+      if (write(sock, &val[0], 1) == -1)
+      {
+        perror("Client sending data error"); // 가스발생하면 서버에 1보내기
+        return -1;
+      }
+    }
+    else if (write(sock, &val[1], 1) == -1)
+    {
+      perror("Client sending data error"); // 발생하지 않으면 0보내기
+      return -1;
+    }
+    sleep(1);
+  }
 }
