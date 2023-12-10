@@ -30,7 +30,6 @@ void error_handling(const char *message, int sock) {
 int main(int argc, char* argv[]) {
     struct sockaddr_in server_addr; 
     char picture;
-    char gas_check='0';
     ssize_t read_stat; // 루프 내부에서 선언
 
     if (argc != 3) { // client 프로그램 실행 시 인자에 IP랑 port num을 제대로 주지 않았을 때 
@@ -58,7 +57,7 @@ int main(int argc, char* argv[]) {
         } else if (read_stat == 0) {
             break;
         } else {
-            if (!strncmp(&gas_check, "1",1)) { // 가스가 감지되면 사진을 찍는다.
+            if (!strncmp(picture=='1')) { // 가스가 감지되면 사진을 찍는다.
                 system("raspistill -o image.jpg");
                 system("raspistill -vf -o image.jpg");
                 sleep(1);
