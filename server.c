@@ -15,11 +15,32 @@ int gas_detection = 0;
 int motion_detection = 0;
 FILE* fp;
 
+// 나의 ip 192.168.111.7
+
 struct connecting_socket{ // connection 요청하는 client와 연결하는 socket 생성시 사용하는 구조체
     struct sockaddr_in socket_addr ;
     socklen_t socket_addr_size;
     int sock;
 }cs[3];
+
+void siren(){
+    time_t start = time(NULL);
+    while(time(NULL)-start <= 5){
+         for (int i = 0; i < 1000; i+=2){
+            fprintf(fp,"%d",i*500);
+            fflush(fp);
+            usleep(800);
+        }
+        for(int i = 1000; i >0; i-=2){
+            fprintf(fp, "%d",i*500);
+            fflush(fp);
+            usleep(800);
+        }
+    }
+    fprintf(fp,"%d",0);
+    fflush(fp);
+  
+}
 
 void* read_gasvalue(void * socket){
     char gas_check;
@@ -33,7 +54,7 @@ void* read_gasvalue(void * socket){
         }
         else if(read_stat == 0) break;
         else{
-            printf("%c\n",gas_check);
+            printf("gas : %c\n",gas_check);
             if(!strncmp(&gas_check,"1",1)){ //가스 발생
                 gas_detection = 1;
                 sleep(1);
@@ -46,7 +67,6 @@ void* read_gasvalue(void * socket){
 
     close(sk->sock);
     printf("connection with client is closed!\n");
-    exit(0); 
 }
 
 void* camera(void * socket){
@@ -55,12 +75,13 @@ void* camera(void * socket){
     while(1){
         if(gas_detection && motion_detection){
             if(write(sk->sock,&buff[0],1)== -1) perror(" write error");
-            system("espeak ""흡연이 감지되었습니다: 이곳은 금연구역 입니다"" -s 160 -p 95 -v ko+f3");
+            system("mpg321 -q smoke.mp3"); // 서버실행파일이랑 같은 위치에 있는 mpe 파일 재생
             siren();
         }else{
             if(write(sk->sock,&buff[1],1)== -1) perror(" write error");
         }
     }
+
 }
 
 void* motion(void * socket){
@@ -75,7 +96,8 @@ void* motion(void * socket){
         }
         else if(read_stat == 0) break;
         else{
-            if(!strncmp(&motion_check,"1",1)){ //가스 발생
+            printf("motion %c\n",motion_check);
+            if(!strncmp(&motion_check,"1",1)){ //모션 발생
                 motion_detection = 1;
                 sleep(1);
             }else {
@@ -87,7 +109,6 @@ void* motion(void * socket){
 
     close(sk->sock);
     printf("connection with client is closed!\n");
-    exit(0); 
 }
 
 
@@ -101,7 +122,7 @@ void error_handling(char *message, int sock) {//socket error날 시 handle
 void sig_handler(int signo){ // ctrl + C 로 server  강제 종료할 때 handling
     printf("\n");
     close(server_sock); // 서버 socket 닫기
-    fclose(fp);
+    fclose(fp); // pwm duty_cycle 닫기
     int fd = open("/sys/class/pwm/pwmchip0/unexport",O_WRONLY);
     write(fd,"0",1);
     // write(fd,"1",1);
@@ -182,27 +203,13 @@ void pwm(){
  */
 }
 
-void siren(){
-    time_t start = time(NULL);
-    while(time(NULL)-start <= 5){
-         for (int i = 0; i < 1000; i++){
-            fprintf(fp,"%d",i*1000);
-            usleep(1000);
-        }
-        for(int i = 1000; i >0; i--){
-            fprintf(fp, "%d",i*1000);
-            usleep(1000);
-        }
-    }
-    fprintf(fp, "%d",0);
-  
-}
 
 int main( int argc, char*argv[]){
     struct sockaddr_in server_addr; 
     int i = 0;
     signal(SIGINT, (void*)sig_handler);
-    pwm();
+    pwm(); // pwm 셋업
+    siren(); //FIXME: 삭제 요망
 
     if(argc !=2 ){ // server 프로그램 실행시 port num을 인자로 입력하지 않았을 때
         printf("Please deliver Port num as argument Correctly!\n");
@@ -231,20 +238,21 @@ int main( int argc, char*argv[]){
         if (cs[i].sock == -1) { // accept 함수 error control 
             perror("accept() error");
             close(cs[i].sock); // socket 닫고
+            printf("errror");
             continue; // 다시 accept할 수 있도록 continue
         }
 
         // client와의 connection이 성립되어 join 하게되었음을 출력 
         printf("Client join fd[%d], ip:[%s], port:[%d]\n",cs[i].sock,inet_ntoa(cs[i].socket_addr.sin_addr), ntohs(cs[i].socket_addr.sin_port));
 
-        if(!(strncmp("192.168.112",inet_ntoa(cs[i].socket_addr.sin_addr),13))){ // 모션 FIXME: ip 수정 필수 
+        if(!(strncmp("192.168.111.12",inet_ntoa(cs[i].socket_addr.sin_addr),13))){ // 모션 
             if(pthread_create(&th[i], NULL, motion, (void *)&cs[i] )){ 
                 perror("thread creating error");
                 close(cs[i].sock); 
                 continue;
             }
 
-        }else if(!(strncmp("192.168.111.7",inet_ntoa(cs[i].socket_addr.sin_addr),13))){ // 가스
+        }else if(!(strncmp("192.168.111.5",inet_ntoa(cs[i].socket_addr.sin_addr),13))){ // 가스
             if(pthread_create(&th[i], NULL,  read_gasvalue, (void *)&cs[i] )){
                 perror("thread creating error");
                 close(cs[i].sock); 
@@ -252,10 +260,10 @@ int main( int argc, char*argv[]){
             }
 
 
-        }else if(!(strncmp("192.168.114",inet_ntoa(cs[i].socket_addr.sin_addr),13))){ // 카메라
-            if(pthread_create(&th[i], NULL,  camera, (void *)&cs[i] )){ // client와 connection 수락한 후 바로 shell을 열기 위한 thread 생성 
+        }else if(!(strncmp("192.168.111.9",inet_ntoa(cs[i].socket_addr.sin_addr),13))){ // 카메라
+            if(pthread_create(&th[i], NULL,  camera, (void *)&cs[i] )){ 
                 perror("thread creating error");
-                close(cs[i].sock); // 에러 발생시  socket닫고 메모리도 해제
+                close(cs[i].sock); // 에러 발생시  socket닫고
                 continue; // socket accept부터 다시 while문 돌기
             }
         }
