@@ -12,12 +12,6 @@
 #include <netinet/in.h>
 #include <sys/socket.h>
 
-#define SENDER_EMAIL "0819ljh@naver.com"
-#define SENDER_PASSWORD "lock7136@"
-#define RECIPIENT_EMAIL "sarah123456w1@gmail.com"
-#define SUBJECT "이메일 제목"
-#define BODY "이메일 본문 내용"
-
 int sock; // 전역
 
 void error_handling(const char *message, int sock) {
