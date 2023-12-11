@@ -53,7 +53,6 @@ int main(int argc, char* argv[]) {
         } else {
             if (!strncmp(&picture, "1",1)) {
                 system("raspistill -o image.jpg");
-                system("raspistill -vf -o image.jpg");
                 sleep(1);
                 system("python3 send_email2.py");
             }
