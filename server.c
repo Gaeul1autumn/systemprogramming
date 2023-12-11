@@ -75,7 +75,7 @@ void* camera(void * socket){
     while(1){
         if(gas_detection && motion_detection){
             if(write(sk->sock,&buff[0],1)== -1) perror(" write error");
-            system("mpg321 -q smoke.mp3"); // 서버실행파일이랑 같은 위치에 있는 mpe 파일 재생
+            system("mpg321 -q smoke.mp3"); // 서버실행파일이랑 같은 위치에 있는 mp3 파일 재생
             siren();
         }else{
             if(write(sk->sock,&buff[1],1)== -1) perror(" write error");
